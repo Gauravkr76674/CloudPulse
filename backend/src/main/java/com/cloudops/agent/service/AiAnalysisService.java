@@ -135,7 +135,10 @@ public class AiAnalysisService {
         }
         incidentService.applyAiSeverity(incidentId, triage.payload().suggestedSeverity());
 
-        // ---------- stage 2: diagnosis ----------
+// Refresh context after detection updates the incident
+        context = incidentService.buildAiContext(incidentId);
+
+// ---------- stage 2: diagnosis ----------
         AiStageOutcome<AiDiagnosis> diagnosis = aiService.diagnose(context);
         AiAnalysis diagnosisRow = recordDiagnosis(incidentId, diagnosis);
         produced.add(DtoMapper.toAnalysisDto(diagnosisRow));
@@ -146,7 +149,10 @@ public class AiAnalysisService {
         }
         incidentService.applyAiSeverity(incidentId, diagnosis.payload().suggestedSeverity());
 
-        // ---------- stage 3: recommendation ----------
+// Refresh context after diagnosis updates the incident
+        context = incidentService.buildAiContext(incidentId);
+
+// ---------- stage 3: recommendation ----------
         AiStageOutcome<AiRecommendation> recommendation =
                 aiService.recommend(context, diagnosis.payload());
         AiAnalysis recommendationRow = recordRecommendation(incidentId, recommendation);
