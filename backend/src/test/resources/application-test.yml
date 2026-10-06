@@ -1,0 +1,39 @@
+spring:
+  datasource:
+    url: jdbc:h2:mem:cloudops;DB_CLOSE_DELAY=-1;MODE=MySQL
+    username: sa
+    password: ""
+    driver-class-name: org.h2.Driver
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.H2Dialect
+    show-sql: false
+
+logging:
+  level:
+    com.cloudops.agent: INFO
+
+cloudops:
+  security:
+    jwt-secret: test-secret-key-that-is-long-enough-for-hs256!!
+    jwt-expiration-minutes: 30
+    bootstrap-admin-username: admin
+    bootstrap-admin-password: Admin@12345
+    seed-demo-users: true
+  cloud:
+    provider: mock
+    region: ap-south-1
+    # The flow test asserts on the *first* sync creating resources, so it seeds its own
+    # fixture rather than inheriting one from startup.
+    seed-mock-resources: false
+  monitoring:
+    enabled: false
+  ai:
+    provider: stub
+    auto-analyze-new-incidents: false
+  remediation:
+    execution-enabled: true
+    iam-preflight-enabled: false

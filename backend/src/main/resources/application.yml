@@ -1,0 +1,137 @@
+server:
+  port: ${SERVER_PORT:8080}
+  error:
+    include-message: always
+
+spring:
+  application:
+    name: cloudops-ai-agent
+
+  datasource:
+    url: jdbc:mysql://${DB_HOST:localhost}:${DB_PORT:3306}/${DB_NAME:cloudops}?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+    username: ${DB_USERNAME:cloudops}
+    password: ${DB_PASSWORD:cloudops}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    hikari:
+      maximum-pool-size: 10
+      connection-timeout: 10000
+
+  jpa:
+    hibernate:
+      ddl-auto: update          # dev convenience; db/schema.sql is the authoritative DDL
+    open-in-view: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.MySQLDialect
+        format_sql: true
+        jdbc:
+          time_zone: UTC
+    show-sql: false
+
+  jackson:
+    # Nulls are omitted by default to keep payloads small. Any DTO whose consumers must be able
+    # to tell "this field is null" from "this field is absent" opts out per class with
+    # @JsonInclude(ALWAYS) — see ActionExecutionDto.
+    default-property-inclusion: non_null
+    serialization:
+      write-dates-as-timestamps: false
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: when-authorized
+
+logging:
+  level:
+    root: INFO
+    com.cloudops.agent: DEBUG
+    org.hibernate.SQL: WARN
+
+# ---------------------------------------------------------------------------
+# Application configuration. Everything secret comes from the environment.
+# ---------------------------------------------------------------------------
+cloudops:
+
+  security:
+    # HS256 needs >= 32 bytes. Override in every real environment.
+    jwt-secret: ${JWT_SECRET:change-me-local-dev-secret-key-min-32-bytes!!}
+    jwt-expiration-minutes: ${JWT_EXPIRATION_MINUTES:120}
+    issuer: cloudops-ai-agent
+    cors-allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173,http://localhost:3000}
+    # Bootstrap admin, created only if the users table has no ADMIN yet.
+    bootstrap-admin-username: ${BOOTSTRAP_ADMIN_USERNAME:admin}
+    bootstrap-admin-password: ${BOOTSTRAP_ADMIN_PASSWORD:Admin@12345}
+    bootstrap-admin-email: ${BOOTSTRAP_ADMIN_EMAIL:admin@cloudops.local}
+    seed-demo-users: ${SEED_DEMO_USERS:true}
+
+  cloud:
+    # mock = local development without AWS credentials
+    # aws  = real AWS via AWS SDK for Java v2 (DefaultCredentialsProvider)
+    provider: ${CLOUD_PROVIDER:mock}
+    region: ${AWS_REGION:ap-south-1}
+    # import the mock provider's instances at startup on an empty database, so the dashboard
+    # has data on first login. Never applies when provider=aws: a real account is only read
+    # by an explicit POST /api/resources/sync.
+    seed-mock-resources: ${SEED_MOCK_RESOURCES:true}
+    # optional: use a named profile from ~/.aws/credentials instead of the default chain
+    profile: ${AWS_PROFILE:}
+    # only instances carrying this tag are auto-imported by /api/resources/sync
+    discovery-tag-key: ${AWS_DISCOVERY_TAG_KEY:CloudOpsMonitored}
+    discovery-tag-value: ${AWS_DISCOVERY_TAG_VALUE:true}
+    # false = ignore the tag filter and import every instance in the region
+    discovery-tag-filter-enabled: ${AWS_DISCOVERY_TAG_FILTER_ENABLED:true}
+    api-timeout-seconds: 20
+
+  monitoring:
+    enabled: ${MONITORING_ENABLED:true}
+    # CloudWatch basic monitoring publishes every 5 minutes on the free tier
+    poll-interval-ms: ${MONITORING_POLL_INTERVAL_MS:300000}
+    initial-delay-ms: 20000
+    cloudwatch-period-seconds: 300
+    lookback-minutes: 30
+    metric-names: CPUUtilization,NetworkIn,NetworkOut,StatusCheckFailed
+    retention-days: 14
+
+  detection:
+    default-cpu-threshold-percent: ${DETECTION_CPU_THRESHOLD:90}
+    default-network-in-threshold-bytes: 50000000
+    consecutive-breaches-to-open: ${DETECTION_CONSECUTIVE_BREACHES:2}
+    # rolling-baseline (z-score) detection catches spikes below the hard threshold
+    baseline-enabled: true
+    baseline-window-size: 20
+    baseline-min-samples: 8
+    baseline-z-threshold: 3.0
+
+  ai:
+    # stub = deterministic offline analyser (no API key needed, keeps the demo runnable)
+    # http = OpenAI-compatible chat-completions endpoint
+    provider: ${AI_PROVIDER:stub}
+    base-url: ${AI_BASE_URL:https://api.openai.com/v1}
+    api-key: ${AI_API_KEY:}
+    default-model: ${AI_MODEL:gpt-4o-mini}
+    timeout-seconds: ${AI_TIMEOUT_SECONDS:45}
+    max-retries: ${AI_MAX_RETRIES:2}
+    temperature: 0.1
+    max-output-tokens: 900
+    auto-analyze-new-incidents: true
+    # Multi-model routing: each pipeline stage can be served by a different model.
+    models:
+      DETECTION: ${AI_MODEL_DETECTION:}
+      DIAGNOSIS: ${AI_MODEL_DIAGNOSIS:}
+      RECOMMENDATION: ${AI_MODEL_RECOMMENDATION:}
+      VERIFICATION: ${AI_MODEL_VERIFICATION:}
+
+  remediation:
+    # global kill switch: false => approvals are recorded but nothing touches AWS
+    execution-enabled: ${REMEDIATION_ENABLED:true}
+    # every mutating action must be approved by an ADMIN before it runs
+    require-approval: true
+    # dry-run executions validate + audit without calling AWS
+    force-dry-run: ${REMEDIATION_FORCE_DRY_RUN:false}
+    max-actions-per-resource-per-hour: 3
+    # check the caller's IAM permissions before executing an AWS mutation
+    iam-preflight-enabled: ${IAM_PREFLIGHT_ENABLED:true}

@@ -1,0 +1,28 @@
+version: "3.8"
+
+# Convenience MySQL for local development:
+#   docker compose up -d
+# Then start the backend with the default datasource settings in application.yml.
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: cloudops-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpass
+      MYSQL_DATABASE: cloudops
+      MYSQL_USER: cloudops
+      MYSQL_PASSWORD: cloudops
+    ports:
+      - "3306:3306"
+    command: --default-authentication-plugin=mysql_native_password
+    volumes:
+      - cloudops-mysql-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-ucloudops", "-pcloudops"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  cloudops-mysql-data:

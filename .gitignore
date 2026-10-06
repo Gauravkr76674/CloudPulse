@@ -1,0 +1,32 @@
+# build output
+target/
+build/
+*.jar
+*.war
+
+# node
+node_modules/
+dist/
+.vite/
+
+# secrets & local config
+.env
+.env.local
+*.pem
+*.p12
+aws-credentials*
+application-local.yml
+
+# IDE
+.idea/
+*.iml
+.vscode/
+.classpath
+.project
+.settings/
+
+# logs & os
+logs/
+*.log
+.DS_Store
+Thumbs.db
